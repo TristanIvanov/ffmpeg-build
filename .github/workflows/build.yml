@@ -75,7 +75,10 @@ jobs:
             --enable-protocol=rtmp \
             --enable-protocol=rtmps \
             --enable-protocol=tcp \
+            --enable-protocol=udp \
             --enable-protocol=tls \
+            --enable-protocol=https \
+            --enable-protocol=http \
             --enable-protocol=pipe \
             --enable-protocol=file \
             --enable-static \

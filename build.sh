@@ -69,7 +69,10 @@ export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${X264_DIR}/lib/pkgconfig:$
   --enable-protocol=rtmp \
   --enable-protocol=rtmps \
   --enable-protocol=tcp \
+  --enable-protocol=udp \
   --enable-protocol=tls \
+  --enable-protocol=https \
+  --enable-protocol=http \
   --enable-protocol=pipe \
   --enable-protocol=file \
   --enable-static \
