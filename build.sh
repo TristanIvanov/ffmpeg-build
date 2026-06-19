@@ -14,19 +14,14 @@ echo "=== Building FFmpeg ${FFMPEG_VERSION} with OpenSSL ==="
 echo "Build dir: ${BUILD_DIR}"
 echo "Output dir: ${OUTPUT_DIR}"
 
-# Check dependencies
-for dep in brew pkg-config nasm make; do
-  if ! command -v "$dep" &> /dev/null; then
-    echo "Missing dependency: $dep"
-    exit 1
-  fi
-done
-
-# Install OpenSSL via Homebrew
-brew install openssl pkg-config nasm
+# Install dependencies via Homebrew
+echo "Installing dependencies..."
+brew install openssl pkg-config nasm x264
 
 OPENSSL_DIR=$(brew --prefix openssl)
-echo "OpenSSL dir: ${OPENSSL_DIR}"
+X264_DIR=$(brew --prefix x264)
+echo "OpenSSL: ${OPENSSL_DIR}"
+echo "x264: ${X264_DIR}"
 
 # Download source
 mkdir -p "${BUILD_DIR}"
@@ -41,35 +36,62 @@ fi
 
 cd "ffmpeg-${FFMPEG_VERSION}"
 
-# Configure
-export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+# Configure — minimal build: OpenSSL + libx264 + AAC + FLV
+export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${X264_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 
 ./configure \
   --enable-openssl \
   --enable-nonfree \
   --enable-gpl \
   --enable-libx264 \
-  --enable-libx265 \
-  --enable-libmp3lame \
-  --enable-libopus \
-  --enable-libvorbis \
   --disable-doc \
   --disable-ffplay \
   --disable-ffprobe \
+  --disable-encoders \
+  --enable-encoder=aac \
+  --enable-encoder=libx264 \
+  --enable-encoder=flv \
+  --disable-decoders \
+  --enable-decoder=aac \
+  --enable-decoder=h264 \
+  --enable-decoder=pcm_s16le \
+  --enable-decoder=pcm_s32le \
+  --enable-decoder=mp3 \
+  --disable-muxers \
+  --enable-muxer=flv \
+  --disable-demuxers \
+  --enable-demuxer=pcm_s16le \
+  --enable-demuxer=pcm_s32le \
+  --enable-demuxer=wav \
+  --enable-demuxer=mp3 \
+  --enable-demuxer=image2 \
+  --disable-protocols \
+  --enable-protocol=rtmp \
+  --enable-protocol=rtmps \
+  --enable-protocol=tcp \
+  --enable-protocol=tls \
+  --enable-protocol=pipe \
+  --enable-protocol=file \
   --enable-static \
   --disable-shared \
-  --extra-cflags="-I${OPENSSL_DIR}/include" \
-  --extra-ldflags="-L${OPENSSL_DIR}/lib" \
+  --extra-cflags="-I${OPENSSL_DIR}/include -I${X264_DIR}/include" \
+  --extra-ldflags="-L${OPENSSL_DIR}/lib -L${X264_DIR}/lib" \
   --pkg-config-flags="--static"
 
 # Build
+echo "Building (this takes a few minutes)..."
 make -j"$(sysctl -n hw.ncpu)"
 
 # Verify
 echo ""
 echo "=== Build complete ==="
-echo "TLS backend check:"
-./ffmpeg -version 2>&1 | grep -i "openssl\|configuration" || true
+./ffmpeg -version 2>&1 | head -5
+echo ""
+echo "TLS protocols:"
+./ffmpeg -protocols 2>&1 | grep -i "tls\|rtmp" || true
+echo ""
+echo "Encoders:"
+./ffmpeg -encoders 2>&1 | grep -i "aac\|x264\|flv" || true
 
 # Package
 mkdir -p "${OUTPUT_DIR}"
@@ -87,4 +109,4 @@ echo "ZIP: ${OUTPUT_DIR}/ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip"
 echo ""
 echo "To use with Atalant Streamer, copy the ffmpeg binary to:"
 echo "  src-tauri/target/debug/ffmpeg"
-echo "  (or next to the .app bundle in production)"
+echo "  (next to the app binary, so ffmpeg-sidecar finds it)"

@@ -30,7 +30,8 @@ jobs:
 
     steps:
       - name: Install dependencies
-        run: brew install openssl pkg-config nasm
+        run: |
+          brew install openssl pkg-config nasm x264
 
       - name: Download FFmpeg source
         run: |
@@ -42,36 +43,63 @@ jobs:
         working-directory: ffmpeg-src
         run: |
           OPENSSL_DIR=$(brew --prefix openssl)
-          export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          X264_DIR=$(brew --prefix x264)
+          export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${X264_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}"
           ./configure \
             --enable-openssl \
             --enable-nonfree \
             --enable-gpl \
             --enable-libx264 \
-            --enable-libx265 \
-            --enable-libmp3lame \
-            --enable-libopus \
-            --enable-libvorbis \
             --disable-doc \
             --disable-ffplay \
             --disable-ffprobe \
+            --disable-encoders \
+            --enable-encoder=aac \
+            --enable-encoder=libx264 \
+            --enable-encoder=flv \
+            --disable-decoders \
+            --enable-decoder=aac \
+            --enable-decoder=h264 \
+            --enable-decoder=pcm_s16le \
+            --enable-decoder=pcm_s32le \
+            --enable-decoder=mp3 \
+            --disable-muxers \
+            --enable-muxer=flv \
+            --disable-demuxers \
+            --enable-demuxer=pcm_s16le \
+            --enable-demuxer=pcm_s32le \
+            --enable-demuxer=wav \
+            --enable-demuxer=mp3 \
+            --enable-demuxer=image2 \
+            --disable-protocols \
+            --enable-protocol=rtmp \
+            --enable-protocol=rtmps \
+            --enable-protocol=tcp \
+            --enable-protocol=tls \
+            --enable-protocol=pipe \
+            --enable-protocol=file \
             --enable-static \
             --disable-shared \
-            --extra-cflags="-I${OPENSSL_DIR}/include" \
-            --extra-ldflags="-L${OPENSSL_DIR}/lib" \
+            --extra-cflags="-I${OPENSSL_DIR}/include -I${X264_DIR}/include" \
+            --extra-ldflags="-L${OPENSSL_DIR}/lib -L${X264_DIR}/lib" \
             --pkg-config-flags="--static"
 
       - name: Build FFmpeg
         working-directory: ffmpeg-src
         run: make -j$(sysctl -n hw.ncpu)
 
-      - name: Verify OpenSSL linkage
+      - name: Verify build
         working-directory: ffmpeg-src
         run: |
-          echo "=== Checking TLS backend ==="
-          ./ffmpeg -version 2>&1 | grep -i "openssl\|tls\|configuration" || true
-          echo "=== Verifying binary ==="
+          echo "=== FFmpeg version ==="
+          ./ffmpeg -version 2>&1 | head -5
+          echo "=== TLS protocols ==="
+          ./ffmpeg -protocols 2>&1 | grep -i "tls\|rtmp" || true
+          echo "=== Encoders ==="
+          ./ffmpeg -encoders 2>&1 | grep -i "aac\|x264\|flv" || true
+          echo "=== Binary ==="
           file ./ffmpeg
+          otool -L ./ffmpeg | head -10 || true
 
       - name: Package
         run: |
@@ -112,7 +140,7 @@ jobs:
           cd x86_64 && unzip *.zip && cd ..
           lipo -create arm64/ffmpeg x86_64/ffmpeg -output output/ffmpeg
           chmod +x output/ffmpeg
-          echo "=== Universal binary info ==="
+          echo "=== Universal binary ==="
           file output/ffmpeg
           lipo -info output/ffmpeg
           cd output
@@ -147,11 +175,11 @@ jobs:
             artifacts/ffmpeg-*-macos-x86_64/*.zip
             artifacts/ffmpeg-*-macos-universal/*.zip
           body: |
-            FFmpeg ${{ env.FFMPEG_VERSION }} builds for macOS with OpenSSL (RTMPS support).
+            FFmpeg ${{ env.FFMPEG_VERSION }} for macOS with OpenSSL (RTMPS support).
 
             - `ffmpeg-*-macos-arm64.zip` - Apple Silicon (M1/M2/M3/M4)
             - `ffmpeg-*-macos-x86_64.zip` - Intel
             - `ffmpeg-*-macos-universal.zip` - Universal (both)
 
-            These binaries are drop-in replacements for the ffmpeg-sidecar download.
-            They use OpenSSL instead of Apple Secure Transport, enabling RTMPS streaming.
+            Compiled with OpenSSL (not Secure Transport) for reliable RTMPS streaming.
+            Minimal build: libx264 + AAC + FLV only.
