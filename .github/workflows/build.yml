@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
+          # Remove Homebrew x264 to prevent libxcb contamination
+          brew uninstall --ignore-dependencies x264 2>/dev/null || true
           brew install openssl pkg-config nasm
 
       - name: Build x264 from source (static, no X11)
@@ -40,7 +42,9 @@ jobs:
           ./configure --enable-static --disable-shared --disable-opencl --disable-cli
           make -j$(sysctl -n hw.ncpu)
           sudo make install
-          echo "X264_DIR=$(pwd)" >> $GITHUB_ENV
+          echo "=== x264 installed to ==="
+          ls -la /usr/local/lib/libx264* 2>/dev/null || true
+          ls -la /usr/local/include/x264* 2>/dev/null || true
 
       - name: Download FFmpeg source
         run: |
@@ -98,17 +102,23 @@ jobs:
         working-directory: ffmpeg-src
         run: make -j$(sysctl -n hw.ncpu)
 
-      - name: Verify build
+      - name: Verify build (must have NO libxcb dependency)
         working-directory: ffmpeg-src
         run: |
           echo "=== FFmpeg version ==="
           ./ffmpeg -version 2>&1 | head -5
+          echo "=== Dynamic dependencies ==="
+          otool -L ./ffmpeg
+          echo "=== Checking for forbidden dependencies ==="
+          if otool -L ./ffmpeg | grep -i "libxcb\|libx11\|homebrew\|/usr/local/opt"; then
+            echo "ERROR: Binary has forbidden dynamic dependencies!"
+            exit 1
+          fi
           echo "=== TLS protocols ==="
           ./ffmpeg -protocols 2>&1 | grep -i "tls\|rtmp" || true
           echo "=== Encoders ==="
           ./ffmpeg -encoders 2>&1 | grep -i "aac\|x264\|flv" || true
-          echo "=== Dynamic dependencies ==="
-          otool -L ./ffmpeg || true
+          echo "Build verification passed!"
 
       - name: Package
         run: |
@@ -152,6 +162,12 @@ jobs:
           echo "=== Universal binary ==="
           file output/ffmpeg
           lipo -info output/ffmpeg
+          echo "=== Dependencies check ==="
+          if otool -L output/ffmpeg | grep -i "libxcb\|libx11\|homebrew\|/usr/local/opt"; then
+            echo "ERROR: Universal binary has forbidden dynamic dependencies!"
+            exit 1
+          fi
+          echo "Universal binary verification passed!"
           cd output
           zip "ffmpeg-${{ env.FFMPEG_VERSION }}-macos-universal.zip" ffmpeg
 
@@ -192,4 +208,4 @@ jobs:
             - `ffmpeg-*-macos-universal.zip` - Universal (both)
 
             Compiled with OpenSSL (not Secure Transport) for reliable RTMPS streaming.
-            Static build: x264 from source (no X11/libxcb dependency).
+            Fully static build: x264 from source, no Homebrew runtime dependencies.
