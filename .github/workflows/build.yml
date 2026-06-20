@@ -47,7 +47,7 @@ jobs:
 
       - name: Build x264 from source (static, no X11)
         env:
-          PKG_CONFIG_LIBDIR: /dev/null
+          PKG_CONFIG_LIBDIR: /usr/local/lib/pkgconfig
         run: |
           git clone --depth 1 https://code.videolan.org/videolan/x264.git
           cd x264
@@ -68,8 +68,7 @@ jobs:
       - name: Configure FFmpeg
         working-directory: ffmpeg-src
         env:
-          PKG_CONFIG_LIBDIR: /dev/null
-          PKG_CONFIG_PATH: /dev/null
+          PKG_CONFIG_LIBDIR: /usr/local/lib/pkgconfig
         run: |
           ./configure \
             --enable-openssl \

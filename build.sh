@@ -51,7 +51,7 @@ fi
 
 cd "ffmpeg-${FFMPEG_VERSION}"
 
-PKG_CONFIG_LIBDIR=/dev/null PKG_CONFIG_PATH=/dev/null ./configure \
+PKG_CONFIG_LIBDIR=/usr/local/lib/pkgconfig ./configure \
   --enable-openssl \
   --enable-nonfree \
   --enable-gpl \
