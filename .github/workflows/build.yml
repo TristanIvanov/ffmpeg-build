@@ -48,6 +48,8 @@ jobs:
       - name: Build x264 from source (static, no X11)
         env:
           PKG_CONFIG_LIBDIR: /dev/null
+          X11_LIBS: " "
+          X11_CFLAGS: " "
         run: |
           git clone --depth 1 https://code.videolan.org/videolan/x264.git
           cd x264
