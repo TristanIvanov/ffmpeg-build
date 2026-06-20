@@ -29,22 +29,35 @@ jobs:
     name: Build FFmpeg ${{ matrix.arch }}
 
     steps:
-      - name: Install dependencies
+      - name: Install build tools
         run: |
-          # Remove Homebrew x264 to prevent libxcb contamination
-          brew uninstall --ignore-dependencies x264 2>/dev/null || true
-          brew install openssl pkg-config nasm
+          brew install pkg-config nasm
+
+      - name: Build OpenSSL from source (static only)
+        run: |
+          OPENSSL_TARGET=$(uname -m | sed 's/arm64/darwin64-arm64/;s/x86_64/darwin64-x86_64/')
+          echo "OpenSSL target: ${OPENSSL_TARGET}"
+          curl -L "https://github.com/openssl/openssl/releases/download/openssl-3.4.1/openssl-3.4.1.tar.gz" -o openssl.tar.gz
+          tar xf openssl.tar.gz
+          cd openssl-3.4.1
+          ./Configure "${OPENSSL_TARGET}" no-shared no-dso no-tests --prefix=/tmp/openssl-static
+          make -j$(sysctl -n hw.ncpu)
+          make install_sw
+          echo "OPENSSL_STATIC=/tmp/openssl-static" >> $GITHUB_ENV
 
       - name: Build x264 from source (static, no X11)
+        env:
+          PKG_CONFIG_LIBDIR: /dev/null
         run: |
           git clone --depth 1 https://code.videolan.org/videolan/x264.git
           cd x264
-          ./configure --enable-static --disable-shared --disable-opencl --disable-cli
+          ./configure \
+            --enable-static \
+            --disable-shared \
+            --disable-opencl \
+            --disable-cli
           make -j$(sysctl -n hw.ncpu)
           sudo make install
-          echo "=== x264 installed to ==="
-          ls -la /usr/local/lib/libx264* 2>/dev/null || true
-          ls -la /usr/local/include/x264* 2>/dev/null || true
 
       - name: Download FFmpeg source
         run: |
@@ -54,9 +67,10 @@ jobs:
 
       - name: Configure FFmpeg
         working-directory: ffmpeg-src
+        env:
+          PKG_CONFIG_LIBDIR: /dev/null
+          PKG_CONFIG_PATH: /dev/null
         run: |
-          OPENSSL_DIR=$(brew --prefix openssl)
-          export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}"
           ./configure \
             --enable-openssl \
             --enable-nonfree \
@@ -95,14 +109,14 @@ jobs:
             --enable-protocol=file \
             --enable-static \
             --disable-shared \
-            --extra-cflags="-I${OPENSSL_DIR}/include" \
-            --extra-ldflags="-L${OPENSSL_DIR}/lib"
+            --extra-cflags="-I${OPENSSL_STATIC}/include" \
+            --extra-ldflags="-L${OPENSSL_STATIC}/lib"
 
       - name: Build FFmpeg
         working-directory: ffmpeg-src
         run: make -j$(sysctl -n hw.ncpu)
 
-      - name: Verify build (must have NO libxcb dependency)
+      - name: Verify build (must have NO Homebrew dependencies)
         working-directory: ffmpeg-src
         run: |
           echo "=== FFmpeg version ==="
@@ -110,7 +124,7 @@ jobs:
           echo "=== Dynamic dependencies ==="
           otool -L ./ffmpeg
           echo "=== Checking for forbidden dependencies ==="
-          if otool -L ./ffmpeg | grep -i "libxcb\|libx11\|homebrew\|/usr/local/opt"; then
+          if otool -L ./ffmpeg | grep -i "libxcb\|libx11\|/opt/homebrew\|/usr/local/opt"; then
             echo "ERROR: Binary has forbidden dynamic dependencies!"
             exit 1
           fi
@@ -163,7 +177,7 @@ jobs:
           file output/ffmpeg
           lipo -info output/ffmpeg
           echo "=== Dependencies check ==="
-          if otool -L output/ffmpeg | grep -i "libxcb\|libx11\|homebrew\|/usr/local/opt"; then
+          if otool -L output/ffmpeg | grep -i "libxcb\|libx11\|/opt/homebrew\|/usr/local/opt"; then
             echo "ERROR: Universal binary has forbidden dynamic dependencies!"
             exit 1
           fi
@@ -207,5 +221,4 @@ jobs:
             - `ffmpeg-*-macos-x86_64.zip` - Intel
             - `ffmpeg-*-macos-universal.zip` - Universal (both)
 
-            Compiled with OpenSSL (not Secure Transport) for reliable RTMPS streaming.
-            Fully static build: x264 from source, no Homebrew runtime dependencies.
+            Fully static build: OpenSSL + x264 from source, zero Homebrew runtime dependencies.
