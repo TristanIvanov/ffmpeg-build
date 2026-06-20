@@ -31,7 +31,16 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          brew install openssl pkg-config nasm x264
+          brew install openssl pkg-config nasm
+
+      - name: Build x264 from source (static, no X11)
+        run: |
+          git clone --depth 1 https://code.videolan.org/videolan/x264.git
+          cd x264
+          ./configure --enable-static --disable-shared --disable-opencl --disable-cli
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+          echo "X264_DIR=$(pwd)" >> $GITHUB_ENV
 
       - name: Download FFmpeg source
         run: |
@@ -43,8 +52,7 @@ jobs:
         working-directory: ffmpeg-src
         run: |
           OPENSSL_DIR=$(brew --prefix openssl)
-          X264_DIR=$(brew --prefix x264)
-          export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${X264_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}"
           ./configure \
             --enable-openssl \
             --enable-nonfree \
@@ -83,9 +91,8 @@ jobs:
             --enable-protocol=file \
             --enable-static \
             --disable-shared \
-            --extra-cflags="-I${OPENSSL_DIR}/include -I${X264_DIR}/include" \
-            --extra-ldflags="-L${OPENSSL_DIR}/lib -L${X264_DIR}/lib" \
-            --pkg-config-flags="--static"
+            --extra-cflags="-I${OPENSSL_DIR}/include" \
+            --extra-ldflags="-L${OPENSSL_DIR}/lib"
 
       - name: Build FFmpeg
         working-directory: ffmpeg-src
@@ -100,9 +107,8 @@ jobs:
           ./ffmpeg -protocols 2>&1 | grep -i "tls\|rtmp" || true
           echo "=== Encoders ==="
           ./ffmpeg -encoders 2>&1 | grep -i "aac\|x264\|flv" || true
-          echo "=== Binary ==="
-          file ./ffmpeg
-          otool -L ./ffmpeg | head -10 || true
+          echo "=== Dynamic dependencies ==="
+          otool -L ./ffmpeg || true
 
       - name: Package
         run: |
@@ -186,4 +192,4 @@ jobs:
             - `ffmpeg-*-macos-universal.zip` - Universal (both)
 
             Compiled with OpenSSL (not Secure Transport) for reliable RTMPS streaming.
-            Minimal build: libx264 + AAC + FLV only.
+            Static build: x264 from source (no X11/libxcb dependency).

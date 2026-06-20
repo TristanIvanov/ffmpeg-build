@@ -1,32 +1,39 @@
 #!/bin/bash
 # Build FFmpeg with OpenSSL for macOS (local build script)
 # Usage: ./build.sh [ffmpeg_version]
-# Example: ./build.sh 7.1.1
+# Example: ./build.sh 8.1.2
 
 set -euo pipefail
 
-FFMPEG_VERSION="${1:-7.1.1}"
+FFMPEG_VERSION="${1:-8.1.2}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 OUTPUT_DIR="${SCRIPT_DIR}/output"
 
 echo "=== Building FFmpeg ${FFMPEG_VERSION} with OpenSSL ==="
-echo "Build dir: ${BUILD_DIR}"
-echo "Output dir: ${OUTPUT_DIR}"
 
-# Install dependencies via Homebrew
+# Install dependencies via Homebrew (x264 NOT from brew - we build it from source)
 echo "Installing dependencies..."
-brew install openssl pkg-config nasm x264
+brew install openssl pkg-config nasm
 
 OPENSSL_DIR=$(brew --prefix openssl)
-X264_DIR=$(brew --prefix x264)
 echo "OpenSSL: ${OPENSSL_DIR}"
-echo "x264: ${X264_DIR}"
 
-# Download source
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}"
 
+# Build x264 from source (static, no X11/libxcb)
+if [ ! -d "x264" ]; then
+  echo "Building x264 from source..."
+  git clone --depth 1 https://code.videolan.org/videolan/x264.git
+fi
+cd x264
+./configure --enable-static --disable-shared --disable-opencl --disable-cli
+make -j"$(sysctl -n hw.ncpu)"
+sudo make install
+cd ..
+
+# Download FFmpeg source
 if [ ! -d "ffmpeg-${FFMPEG_VERSION}" ]; then
   echo "Downloading FFmpeg ${FFMPEG_VERSION}..."
   curl -L "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" -o ffmpeg.tar.xz
@@ -36,8 +43,8 @@ fi
 
 cd "ffmpeg-${FFMPEG_VERSION}"
 
-# Configure — minimal build: OpenSSL + libx264 + AAC + FLV
-export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${X264_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+# Configure
+export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 
 ./configure \
   --enable-openssl \
@@ -77,9 +84,8 @@ export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${X264_DIR}/lib/pkgconfig:$
   --enable-protocol=file \
   --enable-static \
   --disable-shared \
-  --extra-cflags="-I${OPENSSL_DIR}/include -I${X264_DIR}/include" \
-  --extra-ldflags="-L${OPENSSL_DIR}/lib -L${X264_DIR}/lib" \
-  --pkg-config-flags="--static"
+  --extra-cflags="-I${OPENSSL_DIR}/include" \
+  --extra-ldflags="-L${OPENSSL_DIR}/lib"
 
 # Build
 echo "Building (this takes a few minutes)..."
@@ -90,11 +96,11 @@ echo ""
 echo "=== Build complete ==="
 ./ffmpeg -version 2>&1 | head -5
 echo ""
+echo "Dynamic dependencies (should only show system libs):"
+otool -L ./ffmpeg || true
+echo ""
 echo "TLS protocols:"
 ./ffmpeg -protocols 2>&1 | grep -i "tls\|rtmp" || true
-echo ""
-echo "Encoders:"
-./ffmpeg -encoders 2>&1 | grep -i "aac\|x264\|flv" || true
 
 # Package
 mkdir -p "${OUTPUT_DIR}"
@@ -109,7 +115,3 @@ echo ""
 echo "=== Output ==="
 file "${OUTPUT_DIR}/ffmpeg"
 echo "ZIP: ${OUTPUT_DIR}/ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip"
-echo ""
-echo "To use with Atalant Streamer, copy the ffmpeg binary to:"
-echo "  src-tauri/target/debug/ffmpeg"
-echo "  (next to the app binary, so ffmpeg-sidecar finds it)"
