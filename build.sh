@@ -41,6 +41,21 @@ if [ ! -d "x264" ]; then
   cd ..
 fi
 
+# Create clean x264.pc for FFmpeg configure
+mkdir -p /tmp/custom-pkgconfig
+cat > /tmp/custom-pkgconfig/x264.pc << 'PCEOF'
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: x264
+Description: H.264 encoder
+Version: 0.164
+Libs: -L${libdir} -lx264
+Cflags: -I${includedir}
+PCEOF
+
 # Download FFmpeg source
 if [ ! -d "ffmpeg-${FFMPEG_VERSION}" ]; then
   echo "Downloading FFmpeg ${FFMPEG_VERSION}..."
@@ -51,7 +66,7 @@ fi
 
 cd "ffmpeg-${FFMPEG_VERSION}"
 
-PKG_CONFIG_LIBDIR=/dev/null X264_CFLAGS=-I/usr/local/include X264_LIBS="-L/usr/local/lib -lx264" ./configure \
+PKG_CONFIG_LIBDIR=/tmp/custom-pkgconfig ./configure \
   --enable-openssl \
   --enable-nonfree \
   --enable-gpl \
@@ -88,4 +103,5 @@ ARCH=$(uname -m)
 cd "${OUTPUT_DIR}"
 zip "ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip" ffmpeg
 echo "Output: ${OUTPUT_DIR}/ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip"
+
 
