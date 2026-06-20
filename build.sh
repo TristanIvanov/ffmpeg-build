@@ -1,7 +1,6 @@
 #!/bin/bash
 # Build FFmpeg with OpenSSL for macOS (local build script)
 # Usage: ./build.sh [ffmpeg_version]
-# Example: ./build.sh 8.1.2
 
 set -euo pipefail
 
@@ -12,8 +11,8 @@ OUTPUT_DIR="${SCRIPT_DIR}/output"
 
 echo "=== Building FFmpeg ${FFMPEG_VERSION} with OpenSSL ==="
 
-# Install dependencies via Homebrew (x264 NOT from brew - we build it from source)
-echo "Installing dependencies..."
+# Remove Homebrew x264 to prevent libxcb contamination
+brew uninstall --ignore-dependencies x264 2>/dev/null || true
 brew install openssl pkg-config nasm
 
 OPENSSL_DIR=$(brew --prefix openssl)
@@ -22,7 +21,7 @@ echo "OpenSSL: ${OPENSSL_DIR}"
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}"
 
-# Build x264 from source (static, no X11/libxcb)
+# Build x264 from source (static, no X11)
 if [ ! -d "x264" ]; then
   echo "Building x264 from source..."
   git clone --depth 1 https://code.videolan.org/videolan/x264.git
@@ -43,7 +42,6 @@ fi
 
 cd "ffmpeg-${FFMPEG_VERSION}"
 
-# Configure
 export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 
 ./configure \
@@ -87,19 +85,20 @@ export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
   --extra-cflags="-I${OPENSSL_DIR}/include" \
   --extra-ldflags="-L${OPENSSL_DIR}/lib"
 
-# Build
-echo "Building (this takes a few minutes)..."
+echo "Building..."
 make -j"$(sysctl -n hw.ncpu)"
 
-# Verify
+# Verify NO forbidden dynamic dependencies
+echo "=== Checking dynamic dependencies ==="
+otool -L ./ffmpeg
+if otool -L ./ffmpeg | grep -i "libxcb\|libx11\|homebrew\|/usr/local/opt"; then
+  echo "ERROR: Binary has forbidden dynamic dependencies!"
+  exit 1
+fi
+echo "Verification passed!"
+
 echo ""
-echo "=== Build complete ==="
 ./ffmpeg -version 2>&1 | head -5
-echo ""
-echo "Dynamic dependencies (should only show system libs):"
-otool -L ./ffmpeg || true
-echo ""
-echo "TLS protocols:"
 ./ffmpeg -protocols 2>&1 | grep -i "tls\|rtmp" || true
 
 # Package
@@ -112,6 +111,4 @@ cd "${OUTPUT_DIR}"
 zip "ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip" ffmpeg
 
 echo ""
-echo "=== Output ==="
-file "${OUTPUT_DIR}/ffmpeg"
-echo "ZIP: ${OUTPUT_DIR}/ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip"
+echo "Output: ${OUTPUT_DIR}/ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip"
