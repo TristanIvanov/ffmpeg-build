@@ -58,6 +58,19 @@ jobs:
             --disable-cli
           make -j$(sysctl -n hw.ncpu)
           sudo make install
+          mkdir -p /tmp/custom-pkgconfig
+          cat > /tmp/custom-pkgconfig/x264.pc << 'PCEOF'
+          prefix=/usr/local
+          exec_prefix=${prefix}
+          libdir=${exec_prefix}/lib
+          includedir=${prefix}/include
+
+          Name: x264
+          Description: H.264 encoder
+          Version: 0.164
+          Libs: -L${libdir} -lx264
+          Cflags: -I${includedir}
+          PCEOF
 
       - name: Download FFmpeg source
         run: |
@@ -68,9 +81,7 @@ jobs:
       - name: Configure FFmpeg
         working-directory: ffmpeg-src
         env:
-          PKG_CONFIG_LIBDIR: /dev/null
-          X264_CFLAGS: -I/usr/local/include
-          X264_LIBS: -L/usr/local/lib -lx264
+          PKG_CONFIG_LIBDIR: /tmp/custom-pkgconfig
         run: |
           ./configure \
             --enable-openssl \
