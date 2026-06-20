@@ -51,7 +51,7 @@ fi
 
 cd "ffmpeg-${FFMPEG_VERSION}"
 
-PKG_CONFIG_LIBDIR=/usr/local/lib/pkgconfig ./configure \
+PKG_CONFIG_LIBDIR=/dev/null X264_CFLAGS=-I/usr/local/include X264_LIBS="-L/usr/local/lib -lx264" ./configure \
   --enable-openssl \
   --enable-nonfree \
   --enable-gpl \
@@ -88,3 +88,4 @@ ARCH=$(uname -m)
 cd "${OUTPUT_DIR}"
 zip "ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip" ffmpeg
 echo "Output: ${OUTPUT_DIR}/ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip"
+
