@@ -158,6 +158,12 @@ jobs:
           ./ffmpeg -protocols 2>&1 | grep -i "tls\|rtmp" || true
           echo "=== Encoders ==="
           ./ffmpeg -encoders 2>&1 | grep -i "aac\|x264\|flv" || true
+          echo "=== Decoders ==="
+          ./ffmpeg -decoders 2>&1 | grep -i "png\|f32le\|aac\|mp3" || true
+          echo "=== Checking required decoders ==="
+          if ! ./ffmpeg -decoders 2>&1 | grep -q "png"; then echo "ERROR: png decoder missing!"; exit 1; fi
+          if ! ./ffmpeg -decoders 2>&1 | grep -q "f32le"; then echo "ERROR: f32le decoder missing!"; exit 1; fi
+          echo "All required decoders present!"
           echo "Build verification passed!"
 
       - name: Package
