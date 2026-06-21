@@ -121,6 +121,7 @@ jobs:
             --enable-demuxer=wav \
             --enable-demuxer=mp3 \
             --enable-demuxer=image2 \
+            --enable-demuxer=lavfi \
             --disable-protocols \
             --enable-protocol=rtmp \
             --enable-protocol=rtmps \
