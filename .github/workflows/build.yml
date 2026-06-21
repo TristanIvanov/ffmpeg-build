@@ -112,6 +112,7 @@ jobs:
             --enable-decoder=pcm_f32le \
             --enable-decoder=mp3 \
             --enable-decoder=png \
+            --enable-zlib \
             --disable-muxers \
             --enable-muxer=flv \
             --disable-demuxers \
