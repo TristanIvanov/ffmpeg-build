@@ -73,9 +73,9 @@ PKG_CONFIG_LIBDIR=/tmp/custom-pkgconfig ./configure \
   --enable-libx264 \
   --disable-doc --disable-ffplay --disable-ffprobe \
   --disable-encoders --enable-encoder=aac --enable-encoder=libx264 --enable-encoder=flv \
-  --disable-decoders --enable-decoder=aac --enable-decoder=h264 --enable-decoder=pcm_s16le --enable-decoder=pcm_s32le --enable-decoder=mp3 \
+  --disable-decoders --enable-decoder=aac --enable-decoder=h264 --enable-decoder=pcm_s16le --enable-decoder=pcm_s32le --enable-decoder=pcm_f32le --enable-decoder=mp3 \
   --disable-muxers --enable-muxer=flv \
-  --disable-demuxers --enable-demuxer=pcm_s16le --enable-demuxer=pcm_s32le --enable-demuxer=wav --enable-demuxer=mp3 --enable-demuxer=image2 \
+  --disable-demuxers --enable-demuxer=pcm_s16le --enable-demuxer=pcm_s32le --enable-demuxer=pcm_f32le --enable-demuxer=wav --enable-demuxer=mp3 --enable-demuxer=image2 \
   --disable-protocols --enable-protocol=rtmp --enable-protocol=rtmps --enable-protocol=tcp --enable-protocol=udp --enable-protocol=tls --enable-protocol=https --enable-protocol=http --enable-protocol=pipe --enable-protocol=file \
   --enable-static --disable-shared \
   --extra-cflags="-I${OPENSSL_STATIC}/include" \
@@ -103,5 +103,6 @@ ARCH=$(uname -m)
 cd "${OUTPUT_DIR}"
 zip "ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip" ffmpeg
 echo "Output: ${OUTPUT_DIR}/ffmpeg-${FFMPEG_VERSION}-macos-${ARCH}.zip"
+
 
 

@@ -109,12 +109,14 @@ jobs:
             --enable-decoder=h264 \
             --enable-decoder=pcm_s16le \
             --enable-decoder=pcm_s32le \
+            --enable-decoder=pcm_f32le \
             --enable-decoder=mp3 \
             --disable-muxers \
             --enable-muxer=flv \
             --disable-demuxers \
             --enable-demuxer=pcm_s16le \
             --enable-demuxer=pcm_s32le \
+            --enable-demuxer=pcm_f32le \
             --enable-demuxer=wav \
             --enable-demuxer=mp3 \
             --enable-demuxer=image2 \
