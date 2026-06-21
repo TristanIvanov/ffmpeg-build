@@ -6,13 +6,13 @@ on:
       ffmpeg_version:
         description: "FFmpeg version to build"
         required: true
-        default: "7.1.1"
+        default: "8.1.2"
   push:
     tags:
       - "v*"
 
 env:
-  FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || '7.1.1' }}
+  FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || '8.1.2' }}
 
 jobs:
   build:
