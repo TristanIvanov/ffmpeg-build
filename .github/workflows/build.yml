@@ -29,6 +29,14 @@ jobs:
     name: Build FFmpeg ${{ matrix.arch }}
 
     steps:
+      - name: Remove X11 and other Homebrew contamination
+        run: |
+          brew uninstall --ignore-dependencies libx11 libxcb libxau libxdmcp xorgproto x264 2>/dev/null || true
+          # Remove any leftover X11 pkg-config files
+          rm -f /usr/local/lib/pkgconfig/x11*.pc /usr/local/lib/pkgconfig/xcb*.pc /opt/homebrew/lib/pkgconfig/x11*.pc /opt/homebrew/lib/pkgconfig/xcb*.pc 2>/dev/null || true
+          # Remove leftover X11 libraries to prevent detection
+          rm -rf /usr/local/opt/libx11 /usr/local/opt/libxcb /opt/homebrew/opt/libx11 /opt/homebrew/opt/libxcb 2>/dev/null || true
+
       - name: Install build tools
         run: |
           brew install pkg-config nasm
